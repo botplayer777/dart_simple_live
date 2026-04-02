@@ -1,0 +1,107 @@
+name: Personal Build - macOS & Android
+
+on:
+  workflow_dispatch:  # 仅手动触发
+
+jobs:
+  build_android:
+    name: Build Android APK (OnePlus 13T Compatible)
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.38.0'  # 根据项目README要求
+      
+      - name: Get dependencies
+        run: |
+          cd simple_live_app
+          flutter pub get
+      
+      - name: Build Android APK (arm64-v8a for OnePlus 13T)
+        run: |
+          cd simple_live_app
+          flutter build apk --release --target-platform android-arm64
+      
+      - name: Build Android APK (Universal)
+        run: |
+          cd simple_live_app
+          flutter build apk --release
+      
+      - name: Rename APK files
+        run: |
+          cd simple_live_app/build/app/outputs/flutter-apk
+          mv app-release.apk simple-live-universal-${{ github.run_number }}.apk || true
+          mv app-arm64-v8a-release.apk simple-live-arm64-${{ github.run_number }}.apk || true
+      
+      - name: Upload Android APK (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-arm64
+          path: simple_live_app/build/app/outputs/flutter-apk/simple-live-arm64-*.apk
+          retention-days: 30
+      
+      - name: Upload Android APK (Universal)
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-universal
+          path: simple_live_app/build/app/outputs/flutter-apk/simple-live-universal-*.apk
+          retention-days: 30
+
+  build_macos:
+    name: Build macOS App
+    runs-on: macos-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          flutter-version: '3.38.0'
+      
+      - name: Get dependencies
+        run: |
+          cd simple_live_app
+          flutter pub get
+      
+      - name: Build macOS App
+        run: |
+          cd simple_live_app
+          flutter build macos --release
+      
+      - name: Create DMG (Optional)
+        run: |
+          cd simple_live_app/build/macos/Build/Products/Release
+          # 创建临时目录
+          mkdir -p dmg_temp
+          cp -R simple_live_app.app dmg_temp/
+          # 创建DMG
+          hdiutil create -volname "Simple Live" -srcfolder dmg_temp -ov -format UDZO simple-live-macos-${{ github.run_number }}.dmg
+      
+      - name: Upload macOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: simple_live_app/build/macos/Build/Products/Release/simple_live_app.app
+          retention-days: 30
+      
+      - name: Upload macOS DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-dmg
+          path: simple_live_app/build/macos/Build/Products/Release/simple-live-macos-*.dmg
+          retention-days: 30
