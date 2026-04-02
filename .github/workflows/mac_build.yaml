@@ -1,11 +1,11 @@
-name: Build macOS + Android (FIXED)
+name: Build macOS + Android (FINAL FIX)
 
 on:
   workflow_dispatch:
 
 jobs:
   build-mac-android:
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -16,41 +16,40 @@ jobs:
           distribution: "zulu"
           java-version: "17"
 
+      # 用项目需要的 Flutter 3.28+ = Dart 3.5+
       - name: Flutter action
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.22.3"
+          flutter-version: "3.29.3"
+          channel: stable
 
-      - name: Enable Flutter Desktop
+      - name: Enable macOS desktop
         run: flutter config --enable-macos-desktop
-
-      - name: Fix intl version conflict
-        run: |
-          cd simple_live_app
-          sed -i '' 's/intl: ^0.20.2/intl: 0.19.0/g' pubspec.yaml
 
       - name: Install dependencies
         run: |
           cd simple_live_app
           flutter pub get
 
+      # 构建 Android
       - name: Build Android APK
         run: |
           cd simple_live_app
           flutter build apk --release
 
-      - name: Upload Android APK
+      - name: Upload Android
         uses: actions/upload-artifact@v4
         with:
           name: Android-APK
           path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
 
+      # 构建 macOS
       - name: Build macOS
         run: |
           cd simple_live_app
           flutter build macos --release
 
-      - name: Upload macOS App
+      - name: Upload macOS
         uses: actions/upload-artifact@v4
         with:
           name: macOS-App
