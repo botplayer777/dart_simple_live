@@ -1,58 +1,80 @@
-name: Build macOS + Android (NO MORE ERRORS)
+name: app-build-action
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., v1.0.0)'
+        required: false
+        type: string
 
 jobs:
   build-mac-android:
-    runs-on: macos-15
+    runs-on: macos-latest
     steps:
+      # 签出代码
       - uses: actions/checkout@v4
         with:
           ref: master
 
+      # 设置 Flutter
+      - name: Flutter action
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.x"
+          cache: true
+
+      # 设置 Java 环境（Android 需要）
       - uses: actions/setup-java@v4
         with:
           distribution: "zulu"
           java-version: "17"
+          cache: "gradle"
 
-      - name: Flutter action
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: "3.29.3"
-          channel: stable
-
-      - name: Fix intl version conflict
-        run: |
-          cd simple_live_app
-          sed -i '' 's/intl: ^0.20.2/intl: 0.19.0/g' pubspec.yaml
-
-      - name: Enable macOS desktop
+      # 打开 macOS Desktop 支持
+      - name: Enable Flutter desktop
         run: flutter config --enable-macos-desktop
 
-      - name: Install dependencies
+      # 恢复依赖
+      - name: Restore packages
         run: |
           cd simple_live_app
           flutter pub get
 
+      # 安装 flutter_distributor
+      - name: Install flutter_distributor
+        run: dart pub global activate flutter_distributor
+
+      # ========== 构建 Android APK ==========
       - name: Build Android APK
         run: |
           cd simple_live_app
-          flutter build apk --release
+          flutter build apk
 
-      - name: Upload Android
+      # 上传 Android APK 到 Artifacts
+      - name: Upload Android APK
         uses: actions/upload-artifact@v4
         with:
-          name: Android-APK
-          path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
+          name: android-apk
+          path: simple_live_app/build/app/outputs/flutter-apk/app-debug.apk
+
+      # ========== 构建 macOS ==========
+      - name: Install appdmg
+        run: npm install -g appdmg
 
       - name: Build macOS
         run: |
           cd simple_live_app
-          flutter build macos --release
+          flutter_distributor package --platform macos --targets dmg,zip --skip-clean
 
+      # 上传 macOS 到 Artifacts
       - name: Upload macOS
         uses: actions/upload-artifact@v4
         with:
-          name: macOS-App
-          path: simple_live_app/build/macos/Build/Products/Release
+          name: macos-app
+          path: |
+            simple_live_app/build/dist/*/*.dmg
+            simple_live_app/build/dist/*/*.zip
+
+      # 完成提示
+      - run: echo "✅ Build completed! Check Artifacts for downloads"
