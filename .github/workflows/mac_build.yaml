@@ -45,7 +45,6 @@ try:
     with open(file_path, 'r') as f:
         content = f.read()
     
-    # 删除有问题的 isUltraConstrained 代码块
     pattern = r'if #available\(macOS 26\.0, \*\), path\.isUltraConstrained \{[^}]*\}'
     content = re.sub(pattern, '// Removed isUltraConstrained check for compatibility', content)
     
