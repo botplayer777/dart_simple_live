@@ -1,0 +1,58 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:  # 仅手动触发
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    
+    steps:
+      # 签出代码
+      - uses: actions/checkout@v4
+
+      # 设置JAVA环境
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+          cache: "gradle"
+
+      # 设置Flutter
+      - name: Flutter action
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.x"
+          cache: true
+
+      # 更新Flutter的packages
+      - name: Restore packages
+        run: |
+          cd simple_live_app
+          flutter pub get
+
+      # 修复 build.gradle.kts 以支持无签名配置的构建
+      - name: Fix build.gradle.kts for unsigned build
+        run: |
+          cd simple_live_app/android/app
+          # 使用 perl 进行原地替换
+          perl -i -pe 's/keyAlias = keystoreProperties\["keyAlias"\] as String/keyAlias = keystoreProperties.getProperty("keyAlias") ?: "debug"/g' build.gradle.kts
+          perl -i -pe 's/keyPassword = keystoreProperties\["keyPassword"\] as String/keyPassword = keystoreProperties.getProperty("keyPassword") ?: "android"/g' build.gradle.kts
+          perl -i -pe 's/storePassword = keystoreProperties\["storePassword"\] as String/storePassword = keystoreProperties.getProperty("storePassword") ?: "android"/g' build.gradle.kts
+
+      # 打包Android APK - 仅构建 arm64-v8a (现代手机架构)
+      - name: Build Android APK (arm64-v8a only)
+        run: |
+          cd simple_live_app
+          flutter build apk --debug --target-platform android-arm64
+
+      # 上传Android APK至Artifacts
+      - name: Upload Android APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk-arm64
+          path: simple_live_app/build/app/outputs/flutter-apk/app-arm64-v8a-debug.apk
+          retention-days: 30
+
+      # 完成
+      - run: echo "🤖 Android APK build completed successfully!"
