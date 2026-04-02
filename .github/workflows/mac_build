@@ -1,0 +1,54 @@
+name: Build macOS + Android (精简版)
+
+on:
+  workflow_dispatch:  # 手动触发（你只需要这个）
+
+jobs:
+  build-mac-android:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: master
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: "zulu"
+          java-version: "17"
+
+      - name: Flutter action
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.24.5"
+
+      - name: Enable Flutter Desktop
+        run: flutter config --enable-macos-desktop
+
+      - name: Install dependencies
+        run: |
+          cd simple_live_app
+          flutter pub get
+
+      # 构建 Android APK
+      - name: Build Android APK
+        run: |
+          cd simple_live_app
+          flutter build apk --release
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Android-APK
+          path: simple_live_app/build/app/outputs/flutter-apk/app-release.apk
+
+      # 构建 macOS
+      - name: Build macOS
+        run: |
+          cd simple_live_app
+          flutter build macos --release
+
+      - name: Upload macOS App
+        uses: actions/upload-artifact@v4
+        with:
+          name: macOS-App
+          path: simple_live_app/build/macos/Build/Products/Release
