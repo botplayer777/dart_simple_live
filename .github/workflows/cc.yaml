@@ -34,6 +34,14 @@ jobs:
         run: |
           cd simple_live_app
           flutter pub get
+      # 修复 build.gradle.kts 以支持无签名配置的构建
+      - name: Fix build.gradle.kts for unsigned build
+        run: |
+          cd simple_live_app/android/app
+          # 使用 perl 进行原地替换（macOS 兼容）
+          perl -i -pe 's/keyAlias = keystoreProperties\["keyAlias"\] as String/keyAlias = keystoreProperties.getProperty("keyAlias") ?: "debug"/g' build.gradle.kts
+          perl -i -pe 's/keyPassword = keystoreProperties\["keyPassword"\] as String/keyPassword = keystoreProperties.getProperty("keyPassword") ?: "android"/g' build.gradle.kts
+          perl -i -pe 's/storePassword = keystoreProperties\["storePassword"\] as String/storePassword = keystoreProperties.getProperty("storePassword") ?: "android"/g' build.gradle.kts
 
       # 安装appdmg
       - name: Install appdmg
