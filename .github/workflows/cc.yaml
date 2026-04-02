@@ -43,11 +43,11 @@ jobs:
       - name: Install flutter_distributor
         run: dart pub global activate flutter_distributor
 
-      # 打包Android APK (使用 --split-per-abi 生成多个架构版本)
-      - name: Build Android APK (arm64-v8a for OnePlus 13T)
+      # 打包Android APK - 使用 debug 模式完全避开签名配置问题
+      - name: Build Android APK (Debug mode - no signing needed)
         run: |
           cd simple_live_app
-          flutter build apk --debug --split-per-abi
+          flutter build apk --debug --split-per-abi --verbose
 
       # 上传Android APK至Artifacts
       - name: Upload Android APK to Artifacts
