@@ -1,0 +1,85 @@
+name: Build macOS App
+
+on:
+  workflow_dispatch:  # 仅手动触发
+
+jobs:
+  build-macos:
+    runs-on: macos-latest
+    
+    steps:
+      # 签出代码
+      - uses: actions/checkout@v4
+
+      # 设置Flutter
+      - name: Flutter action
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.38.x"
+          cache: true
+
+      # 打开MAC Desktop支持
+      - name: Enable Flutter Desktop
+        run: flutter config --enable-macos-desktop
+
+      # 更新Flutter的packages
+      - name: Restore packages
+        run: |
+          cd simple_live_app
+          flutter pub get
+
+      # 修复 connectivity_plus 插件的 macOS 兼容性问题
+      - name: Fix connectivity_plus for macOS
+        run: |
+          PLUGIN_PATH="$HOME/.pub-cache/hosted/pub.dev/connectivity_plus-7.1.0/macos/connectivity_plus/Sources/connectivity_plus/PathMonitorConnectivityProvider.swift"
+          
+          if [ -f "$PLUGIN_PATH" ]; then
+            echo "Found connectivity_plus plugin, patching..."
+            python3 << 'EOF'
+import re
+import os
+
+file_path = os.path.expanduser("~/.pub-cache/hosted/pub.dev/connectivity_plus-7.1.0/macos/connectivity_plus/Sources/connectivity_plus/PathMonitorConnectivityProvider.swift")
+
+try:
+    with open(file_path, 'r') as f:
+        content = f.read()
+    
+    # 删除有问题的 isUltraConstrained 代码块
+    pattern = r'if #available\(macOS 26\.0, \*\), path\.isUltraConstrained \{[^}]*\}'
+    content = re.sub(pattern, '// Removed isUltraConstrained check for compatibility', content)
+    
+    with open(file_path, 'w') as f:
+        f.write(content)
+    
+    print("✅ connectivity_plus patched successfully")
+except Exception as e:
+    print(f"⚠️ Failed to patch: {e}")
+EOF
+          else
+            echo "⚠️ Plugin not found, listing available versions:"
+            ls -la "$HOME/.pub-cache/hosted/pub.dev/" | grep connectivity || true
+          fi
+
+      # 打包macOS App
+      - name: Build macOS App
+        run: |
+          cd simple_live_app
+          flutter build macos --debug
+      
+      # 压缩 macOS App
+      - name: Create macOS ZIP
+        run: |
+          cd simple_live_app/build/macos/Build/Products/Debug
+          zip -r simple_live_app-macos.zip "Simple Live.app"
+
+      # 上传macOS至Artifacts
+      - name: Upload macOS to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: simple_live_app/build/macos/Build/Products/Debug/simple_live_app-macos.zip
+          retention-days: 30
+
+      # 完成
+      - run: echo "🍏 macOS App build completed successfully!"
