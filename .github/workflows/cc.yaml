@@ -38,36 +38,33 @@ jobs:
       # 修复 connectivity_plus 插件的 macOS 兼容性问题
       - name: Fix connectivity_plus for macOS
         run: |
-          # 找到 connectivity_plus 插件路径
           PLUGIN_PATH="$HOME/.pub-cache/hosted/pub.dev/connectivity_plus-7.1.0/macos/connectivity_plus/Sources/connectivity_plus/PathMonitorConnectivityProvider.swift"
           
           if [ -f "$PLUGIN_PATH" ]; then
             echo "Found connectivity_plus plugin, patching..."
-            # 使用 Python 来修复文件（更可靠）
-            python3 << 'PYTHON_SCRIPT'
-import re
-
-file_path = "$HOME/.pub-cache/hosted/pub.dev/connectivity_plus-7.1.0/macos/connectivity_plus/Sources/connectivity_plus/PathMonitorConnectivityProvider.swift"
-file_path = file_path.replace("$HOME", "/Users/runner")
-
-try:
-    with open(file_path, 'r') as f:
-        content = f.read()
-    
-    # 删除有问题的 isUltraConstrained 代码块
-    # 匹配: if #available(macOS 26.0, *), path.isUltraConstrained { ... }
-    pattern = r'if #available\(macOS 26\.0, \*\), path\.isUltraConstrained \{[^}]*\}'
-    content = re.sub(pattern, '// Removed isUltraConstrained check for compatibility', content)
-    
-    with open(file_path, 'w') as f:
-        f.write(content)
-    
-    print("✅ connectivity_plus has been patched successfully")
-except Exception as e:
-    print(f"⚠️ Failed to patch: {e}")
-PYTHON_SCRIPT
+            python3 << 'EOF'
+          import re
+          import os
+          
+          file_path = os.path.expanduser("~/.pub-cache/hosted/pub.dev/connectivity_plus-7.1.0/macos/connectivity_plus/Sources/connectivity_plus/PathMonitorConnectivityProvider.swift")
+          
+          try:
+              with open(file_path, 'r') as f:
+                  content = f.read()
+              
+              # 删除有问题的 isUltraConstrained 代码块
+              pattern = r'if #available\(macOS 26\.0, \*\), path\.isUltraConstrained \{[^}]*\}'
+              content = re.sub(pattern, '// Removed isUltraConstrained check for compatibility', content)
+              
+              with open(file_path, 'w') as f:
+                  f.write(content)
+              
+              print("✅ connectivity_plus patched successfully")
+          except Exception as e:
+              print(f"⚠️ Failed to patch: {e}")
+          EOF
           else
-            echo "⚠️ connectivity_plus plugin not found at expected path"
+            echo "⚠️ Plugin not found, listing available versions:"
             ls -la "$HOME/.pub-cache/hosted/pub.dev/" | grep connectivity || true
           fi
 
