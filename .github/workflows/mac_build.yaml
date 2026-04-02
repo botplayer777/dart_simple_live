@@ -49,7 +49,7 @@ jobs:
       - name: Build Android APK
         run: |
           cd simple_live_app
-          flutter build apk --verbose
+          flutter build apk --debug --verbose
 
       # 上传 Android APK 到 Artifacts
       - name: Upload Android APK
