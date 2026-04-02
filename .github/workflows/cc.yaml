@@ -34,6 +34,7 @@ jobs:
         run: |
           cd simple_live_app
           flutter pub get
+
       # 修复 build.gradle.kts 以支持无签名配置的构建
       - name: Fix build.gradle.kts for unsigned build
         run: |
@@ -42,14 +43,6 @@ jobs:
           perl -i -pe 's/keyAlias = keystoreProperties\["keyAlias"\] as String/keyAlias = keystoreProperties.getProperty("keyAlias") ?: "debug"/g' build.gradle.kts
           perl -i -pe 's/keyPassword = keystoreProperties\["keyPassword"\] as String/keyPassword = keystoreProperties.getProperty("keyPassword") ?: "android"/g' build.gradle.kts
           perl -i -pe 's/storePassword = keystoreProperties\["storePassword"\] as String/storePassword = keystoreProperties.getProperty("storePassword") ?: "android"/g' build.gradle.kts
-
-      # 安装appdmg
-      - name: Install appdmg
-        run: npm install -g appdmg
-
-      # 设置flutter_distributor环境
-      - name: Install flutter_distributor
-        run: dart pub global activate flutter_distributor
 
       # 打包Android APK - 使用 debug 模式完全避开签名配置问题
       - name: Build Android APK (Debug mode - no signing needed)
@@ -68,20 +61,24 @@ jobs:
             simple_live_app/build/app/outputs/flutter-apk/app-x86_64-debug.apk
           retention-days: 30
 
-      # 打包macOS (使用 flutter_distributor)
-      - name: Build macOS
+      # 打包macOS (使用原生 flutter build，避免 flutter_distributor 的兼容性问题)
+      - name: Build macOS App
         run: |
           cd simple_live_app
-          flutter_distributor package --platform macos --targets dmg,zip --skip-clean
+          flutter build macos --debug
+      
+      # 压缩 macOS App
+      - name: Create macOS ZIP
+        run: |
+          cd simple_live_app/build/macos/Build/Products/Debug
+          zip -r simple_live_app-macos.zip simple_live_app.app
 
       # 上传macOS至Artifacts
       - name: Upload macOS to Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: |
-            simple_live_app/build/dist/*/*.dmg
-            simple_live_app/build/dist/*/*.zip
+          path: simple_live_app/build/macos/Build/Products/Debug/simple_live_app-macos.zip
           retention-days: 30
 
       # 完成
